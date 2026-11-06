@@ -1,7 +1,11 @@
 // js/pieChart.js
+// Reads the small pre-computed data/summary.csv instead of the 250 MB ride-level file.
 
-d3.csv("data/cleaned_bike_data.csv").then(function(data) {
-  const userCounts = d3.rollup(data, v => v.length, d => d.member_casual);
+d3.csv("data/summary.csv", d => ({
+  member_casual: d.member_casual,
+  rides: +d.rides
+})).then(function(data) {
+  const userCounts = d3.rollup(data, v => d3.sum(v, d => d.rides), d => d.member_casual);
   const pieData = Array.from(userCounts, ([type, count]) => ({ type, count }));
 
   const width = 400, height = 400, margin = 40;
@@ -23,42 +27,39 @@ d3.csv("data/cleaned_bike_data.csv").then(function(data) {
   const arcHover = d3.arc().innerRadius(0).outerRadius(radius + 10);
 
   // Tooltip
-  // Tooltip
-const tooltip = d3.select("#pieChart")
-  .append("div")
-  .attr("class", "tooltip");
+  const tooltip = d3.select("#pieChart")
+    .append("div")
+    .attr("class", "tooltip");
 
-svg.selectAll('path')
-  .data(pie(pieData))
-  .enter()
-  .append('path')
-  .attr('d', arc)
-  .attr('fill', d => color(d.data.type))
-  .attr("stroke", "white")
-  .style("stroke-width", "2px")
-  .on("mouseover", function(event, d) {
-    d3.select(this).transition().duration(200).attr("d", arcHover);
+  svg.selectAll("path")
+    .data(pie(pieData))
+    .enter()
+    .append("path")
+    .attr("d", arc)
+    .attr("fill", d => color(d.data.type))
+    .attr("stroke", "white")
+    .style("stroke-width", "2px")
+    .on("mouseover", function(event, d) {
+      d3.select(this).transition().duration(200).attr("d", arcHover);
 
-    const total = d3.sum(pieData.map(d => d.count));
-    const percent = ((d.data.count / total) * 100).toFixed(1);
+      const total = d3.sum(pieData.map(p => p.count));
+      const percent = ((d.data.count / total) * 100).toFixed(1);
 
-    tooltip
-      .style("opacity", 1)
-      .html(`<strong>${d.data.type}</strong><br>Rides: ${d.data.count}<br>${percent}%`)
-      .style("left", (event.offsetX + 15) + "px")
-      .style("top", (event.offsetY - 40) + "px");
-  })
-  .on("mousemove", function(event) {
-    tooltip
+      tooltip
+        .style("opacity", 1)
+        .html(`<strong>${d.data.type}</strong><br>Rides: ${d.data.count.toLocaleString()}<br>${percent}%`)
+        .style("left", (event.offsetX + 15) + "px")
+        .style("top", (event.offsetY - 40) + "px");
+    })
+    .on("mousemove", function(event) {
       const [x, y] = d3.pointer(event, d3.select("#pieChart").node());
 
-tooltip
-  .style("left", (x + 15) + "px")
-  .style("top", (y - 40) + "px");
-  })
-  .on("mouseout", function() {
-    d3.select(this).transition().duration(200).attr("d", arc);
-    tooltip.style("opacity", 0);
-  });
-
+      tooltip
+        .style("left", (x + 15) + "px")
+        .style("top", (y - 40) + "px");
+    })
+    .on("mouseout", function() {
+      d3.select(this).transition().duration(200).attr("d", arc);
+      tooltip.style("opacity", 0);
+    });
 });

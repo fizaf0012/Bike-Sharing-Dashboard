@@ -1,13 +1,18 @@
 // js/lineChart.js
+// Reads the small pre-computed data/summary.csv instead of the 250 MB ride-level file.
 
-d3.csv("data/cleaned_bike_data.csv").then(function(data) {
+d3.csv("data/summary.csv", d => ({
+  member_casual: d.member_casual,
+  month: d.month,
+  rides: +d.rides
+})).then(function(data) {
   const parseMonth = d3.timeParse("%Y-%m");
   const monthFormat = d3.timeFormat("%b %Y");
 
-  // Group data by member_casual + month
+  // Group data by member_casual + month (sum of rides)
   const grouped = d3.rollups(
     data,
-    v => v.length,
+    v => d3.sum(v, d => d.rides),
     d => d.member_casual,
     d => d.month
   );
@@ -47,7 +52,7 @@ d3.csv("data/cleaned_bike_data.csv").then(function(data) {
     .attr("transform", `translate(0,${height})`)
     .call(d3.axisBottom(x).ticks(6).tickFormat(monthFormat));
 
-  const yAxis = chartArea.append("g")
+  chartArea.append("g")
     .call(d3.axisLeft(y));
 
   // Axis labels
@@ -101,7 +106,7 @@ d3.csv("data/cleaned_bike_data.csv").then(function(data) {
       .on("mouseover", (event, d) => {
         tooltip
           .style("opacity", 1)
-          .html(`<strong>${series.userType}</strong><br>${monthFormat(d.month)}<br>Rides: ${d.count}`)
+          .html(`<strong>${series.userType}</strong><br>${monthFormat(d.month)}<br>Rides: ${d.count.toLocaleString()}`)
           .style("left", (event.offsetX + 15) + "px")
           .style("top", (event.offsetY - 40) + "px");
       })
@@ -115,7 +120,7 @@ d3.csv("data/cleaned_bike_data.csv").then(function(data) {
     lineGroups[series.userType] = group;
   });
 
-  // ✅ Add Toggle Legend
+  // Toggle legend
   const legend = d3.select("#lineChart")
     .append("div")
     .attr("class", "legend")
@@ -128,25 +133,25 @@ d3.csv("data/cleaned_bike_data.csv").then(function(data) {
       .attr("checked", true)
       .attr("value", type)
       .on("change", function () {
-        lineGroups[type].style("display", this.checked ? "block" : "none");
+        if (lineGroups[type]) lineGroups[type].style("display", this.checked ? "block" : "none");
       });
     label.append("span")
       .text(" " + type.charAt(0).toUpperCase() + type.slice(1))
       .style("color", color(type));
   });
 
-  // ✅ Zoom behavior
+  // Zoom behavior: Ctrl + scroll to zoom, drag to pan (plain scrolling still scrolls the page)
   const xOriginal = x.copy();
   const zoom = d3.zoom()
     .scaleExtent([1, 4])
     .translateExtent([[0, 0], [width, height]])
     .extent([[0, 0], [width, height]])
+    .filter(event => (event.type !== "wheel" || event.ctrlKey) && !event.button)
     .on("zoom", (event) => {
       const newX = event.transform.rescaleX(xOriginal);
       xAxis.call(d3.axisBottom(newX).tickFormat(monthFormat));
 
-      for (const [userType, group] of Object.entries(lineGroups)) {
-        const data = seriesData.find(s => s.userType === userType).values;
+      for (const [, group] of Object.entries(lineGroups)) {
         group.select("path").attr("d", line.x(d => newX(d.month)));
         group.selectAll("circle").attr("cx", d => newX(d.month));
       }

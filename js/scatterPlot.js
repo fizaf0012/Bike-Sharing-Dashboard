@@ -1,7 +1,7 @@
 // js/scatterPlot.js
 // Changes from the original:
-//  1. Samples 10,000 rides at random from the whole dataset (the original took the FIRST 10,000 rows,
-//     which only covers the earliest days in the file).
+//  1. Reads data/rides_sample.csv: 10,000 rides chosen at random from the whole dataset (the original took
+//     the FIRST 10,000 rows of the big file, which only covers the earliest days).
 //  2. Mouse-wheel zoom no longer hijacks page scrolling (that is what cropped the chart to hours 6-23).
 //     Hold Ctrl and scroll to zoom instead.
 //  3. Points are clipped to the plot area when zoomed.
@@ -58,7 +58,7 @@ function drawScatterPlot(filter = "all") {
 
   if (!data.length) {
     showScatterMessage("No rides to show for this selection. If this appears for every selection, " +
-      "check that data/cleaned_bike_data.csv is a real CSV with hour, duration_min and rideable_type columns.");
+      "check that data/rides_sample.csv exists and has hour, duration_min and rideable_type columns.");
     return;
   }
 
@@ -165,22 +165,20 @@ function drawScatterPlot(filter = "all") {
   svg.call(zoom);
 }
 
-// Initial load
-d3.csv("data/cleaned_bike_data.csv").then(data => {
+// Initial load: data/rides_sample.csv holds 10,000 randomly chosen rides (0-120 min) drawn from the
+// whole period, created by build_dashboard_data.py.
+d3.csv("data/rides_sample.csv").then(data => {
   data.forEach(d => {
     d.hour = +d.hour;
     d.duration_min = +d.duration_min;
   });
 
-  // Drop invalid rows and extreme outliers, then take a reproducible RANDOM sample
-  // so the chart represents the whole period, not just the first rows of the file.
-  const valid = data.filter(d => Number.isFinite(d.hour) && d.duration_min > 0 && d.duration_min <= 120);
-  fullScatterData = d3.shuffler(d3.randomLcg(42))(valid).slice(0, 10000);
+  fullScatterData = data.filter(d => Number.isFinite(d.hour) && d.duration_min > 0 && d.duration_min <= 120);
 
   drawScatterPlot("all");
 }).catch(err => {
-  console.error("Could not load data/cleaned_bike_data.csv", err);
-  showScatterMessage("Could not load data/cleaned_bike_data.csv. See the browser console for details.");
+  console.error("Could not load data/rides_sample.csv", err);
+  showScatterMessage("Could not load data/rides_sample.csv. See the browser console for details.");
 });
 
 // Dropdown filter

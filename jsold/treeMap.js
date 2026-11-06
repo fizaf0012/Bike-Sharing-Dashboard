@@ -1,15 +1,10 @@
 // js/treeMap.js
-// Reads the small pre-computed data/summary.csv instead of the 250 MB ride-level file.
 
-d3.csv("data/summary.csv", d => ({
-  member_casual: d.member_casual,
-  rideable_type: d.rideable_type,
-  rides: +d.rides
-})).then(function(data) {
+d3.csv("data/cleaned_bike_data.csv").then(function(data) {
   // Step 1: Aggregate ride counts by user type + rideable type
   const nested = d3.rollups(
     data,
-    v => d3.sum(v, d => d.rides),
+    v => v.length,
     d => d.member_casual,
     d => d.rideable_type
   );
@@ -65,7 +60,7 @@ d3.csv("data/summary.csv", d => ({
     .on("mouseover", (event, d) => {
       tooltip
         .style("opacity", 1)
-        .html(`<strong>${d.data.name}</strong><br>User: ${d.parent.data.name}<br>Rides: ${d.data.value.toLocaleString()}`)
+        .html(`<strong>${d.data.name}</strong><br>User: ${d.parent.data.name}<br>Rides: ${d.data.value}`)
         .style("left", (event.pageX + 10) + "px")
         .style("top", (event.pageY - 30) + "px");
     })

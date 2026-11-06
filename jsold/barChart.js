@@ -1,19 +1,14 @@
 // js/barChart.js
-// Reads the small pre-computed data/summary.csv instead of the 250 MB ride-level file.
 
 function drawBarChart(userType = "all") {
-  d3.csv("data/summary.csv", d => ({
-    member_casual: d.member_casual,
-    rideable_type: d.rideable_type,
-    rides: +d.rides
-  })).then(function(data) {
+  d3.csv("data/cleaned_bike_data.csv").then(function(data) {
     // Filter data if needed
     const filteredData = userType === "all" ? data : data.filter(d => d.member_casual === userType);
 
-    // Aggregate ride counts by rideable_type
+    // Aggregate counts by rideable_type
     const rideCounts = d3.rollup(
       filteredData,
-      v => d3.sum(v, d => d.rides),
+      v => v.length,
       d => d.rideable_type
     );
 
@@ -72,7 +67,7 @@ function drawBarChart(userType = "all") {
       .on("mouseover", (event, d) => {
         tooltip
           .style("opacity", 1)
-          .html(`${d.type}<br>Count: ${d.count.toLocaleString()}`)
+          .html(`${d.type}<br>Count: ${d.count}`)
           .style("left", (event.offsetX + 15) + "px")
           .style("top", (event.offsetY - 40) + "px");
       })
@@ -87,10 +82,10 @@ function drawBarChart(userType = "all") {
   });
 }
 
-// Initial draw
+// 🔄 Initial draw
 drawBarChart();
 
-// Update on dropdown change
+// 🔁 Update on dropdown change
 document.getElementById("userTypeFilter").addEventListener("change", function () {
   drawBarChart(this.value);
 });
