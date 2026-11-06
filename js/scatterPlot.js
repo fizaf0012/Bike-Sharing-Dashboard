@@ -1,6 +1,13 @@
 // js/scatterPlot.js
+// Changes from the original:
+//  1. Samples 10,000 rides at random from the whole dataset (the original took the FIRST 10,000 rows,
+//     which only covers the earliest days in the file).
+//  2. Mouse-wheel zoom no longer hijacks page scrolling (that is what cropped the chart to hours 6-23).
+//     Hold Ctrl and scroll to zoom instead.
+//  3. Points are clipped to the plot area when zoomed.
+//  4. Shows a clear message if the CSV fails to load or contains no valid rows.
 
-let fullScatterData;
+let fullScatterData = [];
 const legendContainer = d3.select("#scatterLegend");
 legendContainer.selectAll("*").remove(); // Clear previous legend
 
@@ -31,6 +38,16 @@ legendItems.forEach((item, i) => {
     .text(item.label)
     .style("font-size", "13px");
 });
+
+function showScatterMessage(text) {
+  const box = d3.select("#scatterPlot");
+  box.selectAll("*").remove();
+  box.append("p")
+    .style("padding", "40px 20px")
+    .style("color", "#b00020")
+    .text(text);
+}
+
 function drawScatterPlot(filter = "all") {
   const svgContainer = d3.select("#scatterPlot");
   svgContainer.selectAll("*").remove(); // Clear previous chart and tooltip
@@ -38,6 +55,12 @@ function drawScatterPlot(filter = "all") {
   const data = filter === "all"
     ? fullScatterData
     : fullScatterData.filter(d => d.rideable_type === filter);
+
+  if (!data.length) {
+    showScatterMessage("No rides to show for this selection. If this appears for every selection, " +
+      "check that data/cleaned_bike_data.csv is a real CSV with hour, duration_min and rideable_type columns.");
+    return;
+  }
 
   const margin = { top: 30, right: 30, bottom: 50, left: 60 };
   const width = 800 - margin.left - margin.right;
@@ -47,6 +70,13 @@ function drawScatterPlot(filter = "all") {
     .append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom);
+
+  svg.append("defs")
+    .append("clipPath")
+    .attr("id", "scatter-clip")
+    .append("rect")
+    .attr("width", width)
+    .attr("height", height);
 
   const chartArea = svg.append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
@@ -60,7 +90,7 @@ function drawScatterPlot(filter = "all") {
     .attr("transform", `translate(0,${height})`)
     .call(d3.axisBottom(x).ticks(24));
 
-  const yAxis = chartArea.append("g").call(d3.axisLeft(y));
+  chartArea.append("g").call(d3.axisLeft(y));
 
   // Axis labels
   chartArea.append("text")
@@ -91,8 +121,11 @@ function drawScatterPlot(filter = "all") {
     docked_bike: d3.symbol().type(d3.symbolDiamond).size(50)
   };
 
-  const points = chartArea.selectAll(".point")
-    .data(data)
+  // Draw points inside a clipped layer so they stay within the plot when zoomed
+  const pointLayer = chartArea.append("g").attr("clip-path", "url(#scatter-clip)");
+
+  const points = pointLayer.selectAll(".point")
+    .data(data.filter(d => symbolMap[d.rideable_type]))
     .enter()
     .append("path")
     .attr("class", "point")
@@ -117,11 +150,12 @@ function drawScatterPlot(filter = "all") {
     })
     .on("mouseout", () => tooltip.style("opacity", 0));
 
-  // Zoom support
+  // Zoom support: Ctrl + scroll to zoom, drag to pan (plain scrolling still scrolls the page)
   const zoom = d3.zoom()
     .scaleExtent([1, 10])
     .translateExtent([[0, 0], [width, height]])
     .extent([[0, 0], [width, height]])
+    .filter(event => (event.type !== "wheel" || event.ctrlKey) && !event.button)
     .on("zoom", (event) => {
       const newX = event.transform.rescaleX(x);
       xAxis.call(d3.axisBottom(newX).ticks(24));
@@ -138,9 +172,15 @@ d3.csv("data/cleaned_bike_data.csv").then(data => {
     d.duration_min = +d.duration_min;
   });
 
-  // Limit outliers
-  fullScatterData = data.filter(d => d.duration_min > 0 && d.duration_min <= 120).slice(0, 10000);
+  // Drop invalid rows and extreme outliers, then take a reproducible RANDOM sample
+  // so the chart represents the whole period, not just the first rows of the file.
+  const valid = data.filter(d => Number.isFinite(d.hour) && d.duration_min > 0 && d.duration_min <= 120);
+  fullScatterData = d3.shuffler(d3.randomLcg(42))(valid).slice(0, 10000);
+
   drawScatterPlot("all");
+}).catch(err => {
+  console.error("Could not load data/cleaned_bike_data.csv", err);
+  showScatterMessage("Could not load data/cleaned_bike_data.csv. See the browser console for details.");
 });
 
 // Dropdown filter
