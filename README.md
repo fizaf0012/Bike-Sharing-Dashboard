@@ -1,4 +1,4 @@
-# 🚴‍♀️ Bike Sharing Interactive Dashboard
+[# 🚴‍♀️ Bike Sharing Interactive Dashboard
 
 An interactive data visualization dashboard built with **D3.js**, showcasing insights from bike sharing usage data, including ride trends, bike types, and user behaviors. 
 
@@ -60,3 +60,4 @@ This dashboard allows users to explore the dataset using the following interacti
 │   ├── pieChart.js
 │   └── treeMap.js
 └── README.md
+](https://fizaf0012.github.io/Bike-Sharing-Dashboard/)
